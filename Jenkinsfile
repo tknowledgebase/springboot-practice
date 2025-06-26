@@ -1,5 +1,11 @@
 pipeline {
     agent any
+    tools {
+            // This assumes the Maven tool installer plugin is configured in Jenkins
+            // Go to Manage Jenkins -> Tools -> Maven Installations
+            // Add a Maven installation and give it a name like 'M3'
+            maven 'M3' // Replace 'M3' with the name you configure in Jenkins Global Tool Configuration
+        }
     environment {
         // Replace with your Docker Hub username and image name
         DOCKER_IMAGE_NAME = "tknowledgebase/springboot-app"
