@@ -8,70 +8,74 @@ pipeline {
         DOCKER_CRED_ID = "dockerhub-credentials" // Jenkins credential ID for Docker Hub
         GIT_CRED_ID = "git-credentials" // Jenkins credential ID for Git
         KIND_CLUSTER_NAME = "springboot-cluster" // Name of your KIND cluster
+        BRANCH_NAME = "https://github.com/tknowledgebase/springboot-practice.git"
     }
 
     stages {
-        stage('Checkout Source Code') {
-            steps {
-                git branch: 'main', credentialsId: "${GIT_CRED_ID}", url: 'https://github.com/tknowledgebase/springboot-practice.git'
+            stage('Checkout Source Code') {
+                steps {
+                    sh 'git checkout .' // Example, if git is needed again explicitly
+                    sh "git pull origin ${env.BRANCH_NAME ?: 'main'}" // Example for pulling
+                    // Often, 'git' step like below is sufficient and handled by Jenkins SCM
+                    // git branch: 'main', credentialsId: "${GIT_CRED_ID}", url: 'https://github.com/your-username/your-springboot-repo.git'
+                }
             }
-        }
 
-        stage('Build Spring Boot Application') {
-            steps {
-                // Assuming Maven. For Gradle, use `bat 'gradlew clean build'`
-                bat 'mvn clean package -DskipTests'
+            stage('Build Spring Boot Application') {
+                steps {
+                    echo 'Building Spring Boot application...'
+                    // For Maven:
+                    sh 'mvn clean package -DskipTests' // Changed from bat to sh
+                    // For Gradle:
+                    // sh 'gradlew clean build'
+                }
             }
-        }
 
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    // Use Docker Desktop's Docker daemon
-                    withDockerRegistry(credentialsId: "${DOCKER_CRED_ID}", url: 'https://index.docker.io/v1/') {
-                        bat "docker build -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ."
-                        bat "docker tag ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ${DOCKER_IMAGE_NAME}:latest"
+            stage('Build Docker Image') {
+                steps {
+                    script {
+                        echo 'Building Docker image...'
+                        withDockerRegistry(credentialsId: "${DOCKER_CRED_ID}", url: 'https://index.docker.io/v1/') {
+                            sh "docker build -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} --build-arg JAR_FILE=${JAR_FILE_NAME} ." // Changed from bat to sh
+                            sh "docker tag ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ${DOCKER_IMAGE_NAME}:latest" // Changed from bat to sh
+                        }
                     }
                 }
             }
-        }
 
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    withDockerRegistry(credentialsId: "${DOCKER_CRED_ID}", url: 'https://index.docker.io/v1/') {
-                        bat "docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
-                        bat "docker push ${DOCKER_IMAGE_NAME}:latest"
+            stage('Push Docker Image') {
+                steps {
+                    script {
+                        echo 'Pushing Docker image to Docker Hub...'
+                        withDockerRegistry(credentialsId: "${DOCKER_CRED_ID}", url: 'https://index.docker.io/v1/') {
+                            sh "docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}" // Changed from bat to sh
+                            sh "docker push ${DOCKER_IMAGE_NAME}:latest" // Changed from bat to sh
+                        }
                     }
                 }
             }
-        }
 
-        stage('Deploy to KIND') {
-            steps {
-                script {
-                    // Ensure kubectl context is set to KIND cluster
-                    bat "kubectl config use-context kind-${KIND_CLUSTER_NAME}"
+            stage('Deploy to KIND') {
+                steps {
+                    script {
+                        echo 'Deploying to KIND cluster...'
+                        sh "kubectl config use-context kind-${KIND_CLUSTER_NAME}" // Changed from bat to sh
+                        sh "kubectl apply -f kubernetes/deployment.yaml" // Changed from bat to sh
+                        sh "kubectl apply -f kubernetes/service.yaml" // Changed from bat to sh
 
-                    // Apply Kubernetes deployment and service manifests
-                    // Adjust paths if your YAMLs are in a subdirectory (e.g., kubernetes/deployment.yaml)
-                    bat "kubectl apply -f deployment.yaml"
-                    bat "kubectl apply -f service.yaml"
+                        echo "Deployment to KIND cluster: ${KIND_CLUSTER_NAME} initiated."
+                        echo "You can verify the deployment status using: 'kubectl get pods' and 'kubectl get service springboot-app-service'."
+                    }
+                }
+            }
 
-                    echo "Deployed to KIND cluster: ${KIND_CLUSTER_NAME}"
-                    echo "You can check the deployment with: kubectl get pods -n default"
-                    echo "And access the service by running: kubectl get service springboot-app-service -n default"
-                    echo "For NodePort, you can find the port by running 'kubectl get service springboot-app-service -n default' and typically access it via localhost:<NodePort>"
+            stage('Cleanup') {
+                steps {
+                    echo 'Cleaning workspace...'
+                    cleanWs()
                 }
             }
         }
-
-        stage('Cleanup') {
-            steps {
-                cleanWs() // Clean the workspace
-            }
-        }
-    }
 
     post {
         always {
