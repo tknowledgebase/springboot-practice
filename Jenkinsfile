@@ -36,6 +36,15 @@ pipeline {
                 }
             }
 
+            stages {
+                    stage('Check Docker is available ') {
+                        steps {
+                            sh 'docker version'
+                            sh 'docker ps'
+                        }
+                    }
+                }
+
             stage('Build Docker Image') {
                 steps {
                     script {
