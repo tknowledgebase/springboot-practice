@@ -2,18 +2,18 @@ pipeline {
     agent any
     environment {
         // Replace with your Docker Hub username and image name
-        DOCKER_IMAGE_NAME = "your-dockerhub-username/springboot-app"
+        DOCKER_IMAGE_NAME = "tknowledgebase/springboot-app"
         // Replace with your Spring Boot application's JAR file name if different
-        JAR_FILE_NAME = "your-spring-boot-app.jar"
+        JAR_FILE_NAME = "demo.jar"
         DOCKER_CRED_ID = "dockerhub-credentials" // Jenkins credential ID for Docker Hub
-        GIT_CRED_ID = "github-credentials" // Jenkins credential ID for Git
+        GIT_CRED_ID = "git-credentials" // Jenkins credential ID for Git
         KIND_CLUSTER_NAME = "springboot-cluster" // Name of your KIND cluster
     }
 
     stages {
         stage('Checkout Source Code') {
             steps {
-                git branch: 'main', credentialsId: "${GIT_CRED_ID}", url: 'https://github.com/your-username/your-springboot-repo.git'
+                git branch: 'main', credentialsId: "${GIT_CRED_ID}", url: 'https://github.com/tknowledgebase/springboot-practice.git'
             }
         }
 
