@@ -8,7 +8,6 @@ pipeline {
         DOCKER_CRED_ID = "dockerhub-credentials" // Jenkins credential ID for Docker Hub
         GIT_CRED_ID = "git-credentials" // Jenkins credential ID for Git
         KIND_CLUSTER_NAME = "springboot-cluster" // Name of your KIND cluster
-        BRANCH_NAME = "https://github.com/tknowledgebase/springboot-practice.git"
     }
 
     stages {
