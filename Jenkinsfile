@@ -36,39 +36,10 @@ pipeline {
                 }
             }
 
-            stage('Install Docker CLI') {
-                        steps {
-                            script {
-                                // This is for Debian/Ubuntu-based Jenkins image
-                                sh '''
-                                sudo apt-get update
-                                sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
-                                curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-                                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                                sudo apt-get update
-                                sudo apt-get install -y docker-ce-cli
-                                '''
-                            }
-                        }
-            }
-
-             stage('Check Docker is available ') {
-                  steps {
-                     sh 'docker version'
-                      sh 'docker ps'
-                  }
-             }
-
             stage('Build Docker Image') {
-                steps {
-                    script {
-                        echo 'Building Docker image...'
-                        withDockerRegistry(credentialsId: "${DOCKER_CRED_ID}", url: 'https://index.docker.io/v1/') {
-                            sh "docker build -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} --build-arg JAR_FILE=${JAR_FILE_NAME} ." // Changed from bat to sh
-                            sh "docker tag ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ${DOCKER_IMAGE_NAME}:latest" // Changed from bat to sh
-                        }
-                    }
-                }
+                 steps {
+                    sh 'docker build -t $IMAGE_NAME:latest .'
+               }
             }
 
             stage('Push Docker Image') {
@@ -88,8 +59,8 @@ pipeline {
                     script {
                         echo 'Deploying to KIND cluster...'
                         sh "kubectl config use-context kind-${KIND_CLUSTER_NAME}" // Changed from bat to sh
-                        sh "kubectl apply -f kubernetes/deployment.yaml" // Changed from bat to sh
-                        sh "kubectl apply -f kubernetes/service.yaml" // Changed from bat to sh
+                        sh "kubectl apply -f deployment.yaml" // Changed from bat to sh
+                        sh "kubectl apply -f service.yaml" // Changed from bat to sh
 
                         echo "Deployment to KIND cluster: ${KIND_CLUSTER_NAME} initiated."
                         echo "You can verify the deployment status using: 'kubectl get pods' and 'kubectl get service springboot-app-service'."
