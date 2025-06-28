@@ -22,13 +22,6 @@ pipeline {
                         sh  'mvn clean package -DskipTests'
                     }
                 }
-         stage('Check Docker is available ') {
-                          steps {
-                             sh 'docker version'
-                             sh 'docker ps'
-                             sh 'kubectl version --client'
-                          }
-                     }
 
         stage('Build & Push Docker Image') {
             steps {
