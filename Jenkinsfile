@@ -7,6 +7,9 @@ pipeline {
         APP_NAME = 'my-spring-boot-app'
         KIND_CLUSTER_NAME = 'springboot-cluster' // Name of your KIND cluster
         DOCKER_HOST = 'unix:///var/run/docker.sock'
+        DOCKER_TLS_VERIFY = ''
+        DOCKER_CERT_PATH = ''
+        //# DOCKER_TLS_VERIFY = '0' Or you can explicitly set to 0 if an empty string doesn't work for DOCKER_TLS_VERIFY
     }
 
     stages {
