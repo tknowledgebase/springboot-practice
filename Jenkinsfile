@@ -17,15 +17,18 @@ pipeline {
         }
 
         stage('Build Spring Boot Application') {
-            steps {
-                script {
-                    // Use a Maven Docker image for consistent builds if not using agent {} above
-                    docker.image('maven:3.8.5-openjdk-17').inside('-v $HOME/.m2:/root/.m2') {
-                        sh "mvn clean package -DskipTests"
+                    steps {
+                        // Assuming Maven. For Gradle, use `bat 'gradlew clean build'`
+                        bat 'mvn clean package -DskipTests'
                     }
                 }
-            }
-        }
+         stage('Check Docker is available ') {
+                          steps {
+                             sh 'docker version'
+                             sh 'docker ps'
+                             sh 'kubectl version --client'
+                          }
+                     }
 
         stage('Build & Push Docker Image') {
             steps {
