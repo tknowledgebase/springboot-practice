@@ -1,20 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: springboot-app
+  name: spring-boot-app-deployment
+  labels:
+    app: spring-boot-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: springboot-app
+      app: spring-boot-app
   template:
     metadata:
       labels:
-        app: springboot-app
+        app: spring-boot-app
     spec:
       containers:
-      - name: springboot-app
-        image: springboot-app:latest
-        imagePullPolicy: Never
-        ports:
-        - containerPort: 8080
+        - name: spring-boot-app
+          image: tknowledgebase/my-spring-boot-app:latest # Replace with your Docker Hub username
+          ports:
+            - containerPort: 8080

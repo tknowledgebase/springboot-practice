@@ -1,90 +1,90 @@
 pipeline {
-    agent any
-    tools {
-            // This assumes the Maven tool installer plugin is configured in Jenkins
-            // Go to Manage Jenkins -> Tools -> Maven Installations
-            // Add a Maven installation and give it a name like 'M3'
-            maven 'M3' // Replace 'M3' with the name you configure in Jenkins Global Tool Configuration
-        }
+    agent any // Or agent { docker { image 'maven:3.8.5-openjdk-17' } } if you want a dedicated build agent image
+
     environment {
-        // Replace with your Docker Hub username and image name
-        DOCKER_IMAGE_NAME = "tknowledgebase/springboot-app"
-        // Replace with your Spring Boot application's JAR file name if different
-        JAR_FILE_NAME = "demo.jar"
-        DOCKER_CRED_ID = "dockerhub-credentials" // Jenkins credential ID for Docker Hub
-        GIT_CRED_ID = "git-credentials" // Jenkins credential ID for Git
-        KIND_CLUSTER_NAME = "springboot-cluster" // Name of your KIND cluster
+        // Replace with your Docker Hub username
+        DOCKER_HUB_USERNAME = 'tknowledgebase'
+        APP_NAME = 'my-spring-boot-app'
+        KIND_CLUSTER_NAME = 'springboot-cluster' // Name of your KIND cluster
     }
 
     stages {
-            stage('Checkout Source Code') {
-                steps {
-                    sh 'git checkout .' // Example, if git is needed again explicitly
-                    sh "git pull origin ${env.BRANCH_NAME ?: 'main'}" // Example for pulling
-                    // Often, 'git' step like below is sufficient and handled by Jenkins SCM
-                    // git branch: 'main', credentialsId: "${GIT_CRED_ID}", url: 'https://github.com/your-username/your-springboot-repo.git'
-                }
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/tknowledgebase/springboot-practice.git'
+                // Ensure your Git credentials are set up in Jenkins if your repo is private
             }
+        }
 
-            stage('Build Spring Boot Application') {
-                steps {
-                    echo 'Building Spring Boot application...'
-                    // For Maven:
-                    sh 'mvn clean package -DskipTests' // Changed from bat to sh
-                    // For Gradle:
-                    // sh 'gradlew clean build'
-                }
-            }
-
-            stage('Build Docker Image') {
-                 steps {
-                    sh 'docker build -t $IMAGE_NAME:latest .'
-               }
-            }
-
-            stage('Push Docker Image') {
-                steps {
-                    script {
-                        echo 'Pushing Docker image to Docker Hub...'
-                        withDockerRegistry(credentialsId: "${DOCKER_CRED_ID}", url: 'https://index.docker.io/v1/') {
-                            sh "docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}" // Changed from bat to sh
-                            sh "docker push ${DOCKER_IMAGE_NAME}:latest" // Changed from bat to sh
-                        }
+        stage('Build Spring Boot Application') {
+            steps {
+                script {
+                    // Use a Maven Docker image for consistent builds if not using agent {} above
+                    docker.image('maven:3.8.5-openjdk-17').inside('-v $HOME/.m2:/root/.m2') {
+                        sh "mvn clean package -DskipTests"
                     }
-                }
-            }
-
-            stage('Deploy to KIND') {
-                steps {
-                    script {
-                        echo 'Deploying to KIND cluster...'
-                        sh "kubectl config use-context kind-${KIND_CLUSTER_NAME}" // Changed from bat to sh
-                        sh "kubectl apply -f deployment.yaml" // Changed from bat to sh
-                        sh "kubectl apply -f service.yaml" // Changed from bat to sh
-
-                        echo "Deployment to KIND cluster: ${KIND_CLUSTER_NAME} initiated."
-                        echo "You can verify the deployment status using: 'kubectl get pods' and 'kubectl get service springboot-app-service'."
-                    }
-                }
-            }
-
-            stage('Cleanup') {
-                steps {
-                    echo 'Cleaning workspace...'
-                    cleanWs()
                 }
             }
         }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    // Build the Docker image
+                    sh "docker build -t ${DOCKER_HUB_USERNAME}/${APP_NAME}:${env.BUILD_NUMBER} ."
+                    sh "docker build -t ${DOCKER_HUB_USERNAME}/${APP_NAME}:latest ."
+
+                    // Push to Docker Hub (ensure Docker Hub credentials are configured in Jenkins)
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                        sh "docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}:${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}:latest"
+                        sh "docker logout"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to KIND') {
+            steps {
+                script {
+                    // Create KIND cluster if it doesn't exist
+                    try {
+                        sh "kind get clusters | findstr /i /c:\"${KIND_CLUSTER_NAME}\""
+                    } catch (Exception e) {
+                        echo "KIND cluster ${KIND_CLUSTER_NAME} does not exist, creating it..."
+                        sh "kind create cluster --name ${KIND_CLUSTER_NAME}"
+                    }
+
+                    // Export Kubeconfig to make it accessible to kubectl inside the Jenkins container
+                    sh "kind get kubeconfig --name ${KIND_CLUSTER_NAME} > kubeconfig-${KIND_CLUSTER_NAME}.yaml"
+                    env.KUBECONFIG = "kubeconfig-${KIND_CLUSTER_NAME}.yaml" // Set KUBECONFIG for current stage
+
+                    // Apply Kubernetes deployment
+                    sh "kubectl apply -f springboot-deployment.yaml"
+                    sh "kubectl apply -f springboot-service.yaml"
+
+                    // Wait for deployment to be ready (optional, but good practice)
+                    sh "kubectl rollout status spring-boot-app-deployment --timeout=300s"
+
+                    // (Optional) Get service URL for NodePort
+                    echo "Access your application using:"
+                    sh "kubectl get service spring-boot-app-service -o jsonpath='{.spec.ports[0].nodePort}'"
+                    sh "kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type==\"InternalIP\")].address}'"
+                    echo "Combine the Node IP and NodePort to access your application."
+                }
+            }
+        }
+    }
 
     post {
         always {
-            echo 'Pipeline finished.'
-        }
-        success {
-            echo 'Pipeline succeeded!'
+            echo "Pipeline finished."
+            // Clean up workspace if needed
+            // deleteDir()
         }
         failure {
-            echo 'Pipeline failed!'
+            echo "Pipeline failed! Check logs for details."
         }
     }
 }
