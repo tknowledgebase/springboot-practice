@@ -6,6 +6,7 @@ pipeline {
         DOCKER_HUB_USERNAME = 'tknowledgebase'
         APP_NAME = 'my-spring-boot-app'
         KIND_CLUSTER_NAME = 'springboot-cluster' // Name of your KIND cluster
+        DOCKER_HOST = 'unix:///var/run/docker.sock'
     }
 
     stages {
@@ -27,6 +28,7 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image
+                    // The 'docker' commands here will use the DOCKER_HOST set above.
                     sh "docker build -t ${DOCKER_HUB_USERNAME}/${APP_NAME}:${env.BUILD_NUMBER} ."
                     sh "docker build -t ${DOCKER_HUB_USERNAME}/${APP_NAME}:latest ."
 
