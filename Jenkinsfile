@@ -19,7 +19,7 @@ pipeline {
         stage('Build Spring Boot Application') {
                     steps {
                         // Assuming Maven. For Gradle, use `bat 'gradlew clean build'`
-                        bat 'mvn clean package -DskipTests'
+                        sh  'mvn clean package -DskipTests'
                     }
                 }
          stage('Check Docker is available ') {
