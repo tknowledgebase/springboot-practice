@@ -11,8 +11,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') { /* ... */ }
-
         stage('Build Spring Boot Application') {
             steps {
                 sh 'mvn clean package -DskipTests'
