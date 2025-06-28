@@ -1,40 +1,42 @@
 pipeline {
-    agent any // Or agent { docker { image 'maven:3.8.5-openjdk-17' } } if you want a dedicated build agent image
+    agent any
 
     environment {
-        // Replace with your Docker Hub username
         DOCKER_HUB_USERNAME = 'tknowledgebase'
         APP_NAME = 'my-spring-boot-app'
-        KIND_CLUSTER_NAME = 'springboot-cluster' // Name of your KIND cluster
+        KIND_CLUSTER_NAME = 'springboot-cluster'
         DOCKER_HOST = 'unix:///var/run/docker.sock'
         DOCKER_TLS_VERIFY = '0'
         DOCKER_CERT_PATH = ''
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout') { /* ... */ }
+
+        stage('Build Spring Boot Application') {
             steps {
-                git branch: 'main', url: 'https://github.com/tknowledgebase/springboot-practice.git'
-                // Ensure your Git credentials are set up in Jenkins if your repo is private
+                sh 'mvn clean package -DskipTests'
             }
         }
 
-        stage('Build Spring Boot Application') {
-                    steps {
-                        // Assuming Maven. For Gradle, use `bat 'gradlew clean build'`
-                        sh  'mvn clean package -DskipTests'
-                    }
-                }
+        stage('Debug Docker Environment') { // <<< NEW STAGE FOR DEBUGGING
+            steps {
+                sh 'env | grep -i docker || true' // List all env vars, filter for docker-related, || true to prevent failure if grep fails
+                sh 'echo "DOCKER_HOST: ${DOCKER_HOST}"'
+                sh 'echo "DOCKER_TLS_VERIFY: ${DOCKER_TLS_VERIFY}"'
+                sh 'echo "DOCKER_CERT_PATH: ${DOCKER_CERT_PATH}"'
+                sh 'ls -l /var/run/docker.sock || true' // Check if socket exists and permissions
+                sh 'docker info || true' // Attempt docker info to see connection status
+            }
+        }
 
         stage('Build & Push Docker Image') {
             steps {
                 script {
-                    // Build the Docker image
-                    // The 'docker' commands here will use the DOCKER_HOST set above.
+                    // This is where the error occurs
                     sh "docker build -t ${DOCKER_HUB_USERNAME}/${APP_NAME}:${env.BUILD_NUMBER} ."
                     sh "docker build -t ${DOCKER_HUB_USERNAME}/${APP_NAME}:latest ."
 
-                    // Push to Docker Hub (ensure Docker Hub credentials are configured in Jenkins)
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
                         sh "docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}:${env.BUILD_NUMBER}"
